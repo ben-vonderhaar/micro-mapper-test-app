@@ -5,10 +5,10 @@ import com.benvonderhaar.micromapper.base.MicroMapperController;
 
 public class TestController extends MicroMapperController {
 
-	@MMURLPattern(urlPattern = "/test")
-	public String getStuff() {
+	@MMURLPattern(urlPattern = "/test?param={%s}")
+	public String getStuff(String param1) {
 		
-		System.out.println("okkk");
+		System.out.println("okkk: " + param1);
 		
 		return "okkk";
 	}

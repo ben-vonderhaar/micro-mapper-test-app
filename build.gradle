@@ -1,0 +1,16 @@
+defaultTasks 'build', 'copyJars'
+
+repositories {
+	mavenCentral()
+}
+
+apply plugin: 'java'
+
+dependencies {
+	testCompile 'junit:junit:4.12'
+}
+
+task copyJars(type: Copy) {
+	into "WebContent/WEB-INF/lib"
+	from configurations.testCompile - configurations.compile
+}
