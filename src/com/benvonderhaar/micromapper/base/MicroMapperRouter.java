@@ -19,14 +19,14 @@ public abstract class MicroMapperRouter extends HttpServlet {
 	private static final long serialVersionUID = 1120156049273835083L;
 
 	private Map<Method, MicroMapperController> controllerMappings;
-	private Map<String, Method> controllerMethodMappings;
+	private Map<MicroMapperURL, Method> controllerMethodMappings;
 	
 	@Override
 	public void init() throws ServletException {
 		System.out.println("init");
 		
 		controllerMappings = new ConcurrentHashMap<Method, MicroMapperController>();
-		controllerMethodMappings = new ConcurrentHashMap<String, Method>();
+		controllerMethodMappings = new ConcurrentHashMap<MicroMapperURL, Method>();
 		
 		for (Class<?> controller : controllerClasses()) {
 			
@@ -51,7 +51,7 @@ public abstract class MicroMapperRouter extends HttpServlet {
 					System.out.println(methodAnnotation);
 					
 					if (methodAnnotation instanceof MMURLPattern) {
-						controllerMethodMappings.put(((MMURLPattern)methodAnnotation).urlPattern(), method);
+						controllerMethodMappings.put(new MicroMapperURL(((MMURLPattern)methodAnnotation).urlPattern()), method);
 					}
 					
 				}
@@ -69,7 +69,23 @@ public abstract class MicroMapperRouter extends HttpServlet {
 		
 		String specificRequestURL = req.getRequestURI().split(req.getContextPath())[1];
 		
+		if (null != req.getQueryString()) {
+			specificRequestURL += "?" + req.getQueryString();
+		}
+		
 		System.out.println(specificRequestURL);
+		
+		for (MicroMapperURL urlPattern : controllerMethodMappings.keySet()) {
+			
+			System.out.println("URL: " + specificRequestURL);
+			System.out.println("Testing Pattern: " + urlPattern.toString());
+			
+			if (urlPattern.matchesURL(specificRequestURL)) {
+				System.out.println("we have a match");
+				
+				// TODO if match found, attempt to map results to 
+			}
+		}
 		
 		if (null != controllerMethodMappings.get(specificRequestURL)) {
 			try {

@@ -13,84 +13,108 @@ import java.util.List;
  */
 public class MicroMapperURL {
 
-	private List<PatternString> urlSegments;
-	private List<PatternString> parameterSegments;
+//	private List<PatternString> urlSegments;
+//	private List<PatternString> parameterSegments;
+	
+	private static final String MATCH_STRING = "{}";
+	
+	private String[] urlSegmentsArray;
+	private String urlPattern;
 	
 	public MicroMapperURL(String urlPattern) {
-		
-		urlSegments = new ArrayList<PatternString>();
-		parameterSegments = new ArrayList<PatternString>();
-		
-		if (!urlPattern.contains("?")) {
-			populateUrlSegments(urlPattern);
-		} else {
-			populateUrlSegments(urlPattern.split("?")[0]);
-			populateParameterSegments(urlPattern.split("?")[1]);
+
+		// Ensure urlPattern starts with /
+		if (!urlPattern.startsWith("/")) {
+			
+			// TODO more specific exception type
+			throw new RuntimeException("MMURLPattern must begin with / character");
 		}
+		
+		if (urlPattern.contains(MATCH_STRING + MATCH_STRING)) {
+			
+			// TODO more specific exception type
+			throw new RuntimeException("MMURLPattern cannot contain adjacent Match Strings");
+		}
+		
+		// Strip preceding / and store URL Pattern to ensure consistent pattern matching.
+		urlPattern = urlPattern.substring(1);		
+		this.urlPattern = urlPattern;
+		
+		// Avoid empty element at start of array if the URL begins with MATCH_STRING.
+		if (urlPattern.startsWith(MATCH_STRING)) {
+			this.urlSegmentsArray = urlPattern.substring(2).split("\\{\\}");
+		} else {
+			this.urlSegmentsArray = urlPattern.split("\\{\\}");
+		}		
+	}
+	
+	@Override
+	public String toString() {
+		return "/" + this.urlPattern;
 	}
 	
 	/**
 	 * 
-	 * TODO this can be genericized/simplified
 	 * 
 	 * @param url
 	 * @return
 	 */
-	public boolean equalsURL(String url) {
+	public boolean matchesURL(String url) {
 		
-		String preQueryURL = url.contains("?") ? url.split("?")[0] : url;
-		String postQueryURL = url.contains("?") ? url.split("?")[1] : "";
+		System.out.println(this.toString());
 		
-		// Handle case where pattern contains a query and the URL does not.
-		if (parameterSegments.size() > 0 && postQueryURL.equals("")) {
+		// Strip preceding /
+		url = url.substring(1);
+		
+		// If pattern begins with characters to match (not the match string) and those characters
+		// do not match the first match-able segment of this URL Pattern, no match.
+		if (!this.urlPattern.startsWith(MATCH_STRING) && 0 != url.indexOf(urlSegmentsArray[0])) {
+			System.out.println("beginning of url doesn't match");
 			return false;
 		}
 		
-		String[] preQueryURLSegments = preQueryURL.split("/");
+		int segmentIndex = 0;
+		String unprocessedURL = url;
 		
-		// Handle case of different numbers of pre-query segments.
-		if (preQueryURLSegments.length != this.urlSegments.size()) {
-			return false;
-		}
+		List<String> patternMatches = new ArrayList<String>();
 		
-		// Compare pre-query URL Segments to pattern's URL segments
-		for (int i = 0; i < preQueryURLSegments.length; i++) {
-			if (!this.urlSegments.get(i).equalsString(preQueryURLSegments[i])) {
-				return false;
-			}
-		}
-		
-		if (parameterSegments.size() > 0) {
-			String[] postQueryURLSegments = postQueryURL.split("/");
+		// Verify that url contains each segment in appropriate order
+		for (String urlSegment : urlSegmentsArray) {
 			
-			// Handle case of different numbers of post-query segments.
-			if (postQueryURLSegments.length != this.parameterSegments.size()) {
+			// If the remainder of the URL contains the in-process match-able segment, adjust
+			// bookkeeping and add matched pattern
+			if (unprocessedURL.indexOf(urlSegment) >= 0) {
+
+				// TODO ensure match does not contain /
+				
+				patternMatches.add(url.substring(segmentIndex, segmentIndex + unprocessedURL.indexOf(urlSegment)));
+				segmentIndex += unprocessedURL.indexOf(urlSegment) + urlSegment.length();
+				unprocessedURL = url.substring(segmentIndex);
+			} else {
+				System.out.println("segments do not match");
 				return false;
-			}
-			
-			// Compare post-query URL Segments to pattern's URL segments
-			for (int i = 0; i < postQueryURLSegments.length; i++) {
-				if (!this.parameterSegments.get(i).equalsString(postQueryURLSegments[i])) {
-					return false;
-				}
 			}
 		}
 
+		// TODO ensure unprocessedURL matches the last segment?
+		// Validation necessary
+		
+		patternMatches.add(unprocessedURL);
 		
 		return true;
 	}
 	
-	private void populateUrlSegments(String baseURL) {
-		for (String segment : baseURL.split("/")) {
-			urlSegments.add(new PatternString(segment));
-		}
-	}
-	
-	private void populateParameterSegments(String parameters) {
-		for (String segment : parameters.split("/")) {
-			parameterSegments.add(new PatternString(segment));
-		}
-	}
+//	private void populateUrlSegments(String baseURL) {
+//		for (String segment : baseURL.split("/")) {
+//			urlSegments.add(new PatternString(segment));
+//		}
+//	}
+//	
+//	private void populateParameterSegments(String parameters) {
+//		for (String segment : parameters.split("/")) {
+//			parameterSegments.add(new PatternString(segment));
+//		}
+//	}
 	
 	
 }
