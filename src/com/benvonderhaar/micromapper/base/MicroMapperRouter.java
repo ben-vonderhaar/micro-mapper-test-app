@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -19,14 +20,14 @@ public abstract class MicroMapperRouter extends HttpServlet {
 	private static final long serialVersionUID = 1120156049273835083L;
 
 	private Map<Method, MicroMapperController> controllerMappings;
-	private Map<MicroMapperURL, Method> controllerMethodMappings;
+	private Map<String, MicroMapperURL> controllerMethodMappings;
 	
 	@Override
 	public void init() throws ServletException {
 		System.out.println("init");
 		
 		controllerMappings = new ConcurrentHashMap<Method, MicroMapperController>();
-		controllerMethodMappings = new ConcurrentHashMap<MicroMapperURL, Method>();
+		controllerMethodMappings = new ConcurrentHashMap<String, MicroMapperURL>();
 		
 		for (Class<?> controller : controllerClasses()) {
 			
@@ -51,7 +52,10 @@ public abstract class MicroMapperRouter extends HttpServlet {
 					System.out.println(methodAnnotation);
 					
 					if (methodAnnotation instanceof MMURLPattern) {
-						controllerMethodMappings.put(new MicroMapperURL(((MMURLPattern)methodAnnotation).urlPattern()), method);
+						
+						String urlPattern = ((MMURLPattern)methodAnnotation).urlPattern();
+						
+						controllerMethodMappings.put(urlPattern, new MicroMapperURL(urlPattern, method));
 					}
 					
 				}
@@ -75,41 +79,56 @@ public abstract class MicroMapperRouter extends HttpServlet {
 		
 		System.out.println(specificRequestURL);
 		
-		for (MicroMapperURL urlPattern : controllerMethodMappings.keySet()) {
-			
+		for (MicroMapperURL urlPattern : controllerMethodMappings.values()) {
+						
 			System.out.println("URL: " + specificRequestURL);
 			System.out.println("Testing Pattern: " + urlPattern.toString());
 			
 			if (urlPattern.matchesURL(specificRequestURL)) {
 				System.out.println("we have a match");
 				
-				// TODO if match found, attempt to map results to 
+				try {
+				
+					MicroMapperController controller = controllerMappings.get(urlPattern.getMethod());
+					List<String> matchedParameters = urlPattern.getMatchingPattern(urlPattern.toString());
+				
+					System.out.println(urlPattern.getMethod());
+					System.out.println(controller);
+					System.out.println(matchedParameters);
+				
+					// TODO automatically cast argument types 
+					
+					Object[] matchedParametersArray = matchedParameters.toArray();
+					matchedParametersArray[0] = Long.valueOf(matchedParametersArray[0].toString());
+					matchedParametersArray[4] = Long.valueOf(matchedParametersArray[4].toString());
+					
+					resp.setStatus(HttpServletResponse.SC_OK);
+					resp.getWriter().write(urlPattern.getMethod().invoke(controller, matchedParametersArray).toString());
+					resp.getWriter().flush();
+					resp.getWriter().close();
+			
+					
+				} catch (IllegalAccessException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+					
+					// TODO handle argument type mismatch
+					// TODO handle wrong number of arguments
+					
+				} catch (IllegalArgumentException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				} catch (InvocationTargetException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				
+				return;
 			}
+				
 		}
 		
-		if (null != controllerMethodMappings.get(specificRequestURL)) {
-			try {
-				Method methodToInvoke = controllerMethodMappings.get(specificRequestURL);
-
-				resp.setStatus(HttpServletResponse.SC_OK);
-				resp.getWriter().write(methodToInvoke.invoke(controllerMappings.get(methodToInvoke)).toString());
-				resp.getWriter().flush();
-				resp.getWriter().close();
-				
-						
-			} catch (IllegalAccessException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} catch (IllegalArgumentException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} catch (InvocationTargetException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		} else {
-			System.out.println("couldn't find mapping");
-		}
+		System.out.println("couldn't find mapping");
 	}
 
 	public abstract Class<?>[] controllerClasses();

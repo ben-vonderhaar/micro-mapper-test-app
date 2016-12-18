@@ -1,7 +1,10 @@
 package com.benvonderhaar.micromapper.base;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 
 /**
@@ -21,7 +24,10 @@ public class MicroMapperURL {
 	private String[] urlSegmentsArray;
 	private String urlPattern;
 	
-	public MicroMapperURL(String urlPattern) {
+	private Method method;
+	private Map<String, List<String>> matchingPatterns;
+	
+	public MicroMapperURL(String urlPattern, Method method) {
 
 		// Ensure urlPattern starts with /
 		if (!urlPattern.startsWith("/")) {
@@ -37,15 +43,29 @@ public class MicroMapperURL {
 		}
 		
 		// Strip preceding / and store URL Pattern to ensure consistent pattern matching.
-		urlPattern = urlPattern.substring(1);		
-		this.urlPattern = urlPattern;
+		this.urlPattern = urlPattern.substring(1);	
+
+		this.method = method;
+		this.matchingPatterns = new HashMap<String, List<String>>();
 		
 		// Avoid empty element at start of array if the URL begins with MATCH_STRING.
 		if (urlPattern.startsWith(MATCH_STRING)) {
-			this.urlSegmentsArray = urlPattern.substring(2).split("\\{\\}");
+			this.urlSegmentsArray = this.urlPattern.substring(2).split("\\{\\}");
 		} else {
-			this.urlSegmentsArray = urlPattern.split("\\{\\}");
-		}		
+			this.urlSegmentsArray = this.urlPattern.split("\\{\\}");
+		}
+	}
+	
+	@Override
+	public boolean equals(Object other) {
+		
+		System.out.println("comparison");
+		
+		if (other instanceof MicroMapperURL) {
+			return this.toString().equals(((MicroMapperURL) other).toString());
+		} else {
+			return false;
+		}
 	}
 	
 	@Override
@@ -54,17 +74,19 @@ public class MicroMapperURL {
 	}
 	
 	/**
-	 * 
+	 * TODO log reasoning and be sensitive to log levels (i.e. check if debug is enabled)
 	 * 
 	 * @param url
 	 * @return
 	 */
 	public boolean matchesURL(String url) {
 		
-		System.out.println(this.toString());
-		
 		// Strip preceding /
 		url = url.substring(1);
+		
+		System.out.println("------");
+		System.out.println(url);
+		System.out.println(urlSegmentsArray[0]);
 		
 		// If pattern begins with characters to match (not the match string) and those characters
 		// do not match the first match-able segment of this URL Pattern, no match.
@@ -85,9 +107,18 @@ public class MicroMapperURL {
 			// bookkeeping and add matched pattern
 			if (unprocessedURL.indexOf(urlSegment) >= 0) {
 
-				// TODO ensure match does not contain /
+				if (unprocessedURL.indexOf(urlSegment) != 0) {
+					String patternMatch = url.substring(segmentIndex, segmentIndex + unprocessedURL.indexOf(urlSegment));
+					
+					// MATCH_STRING segments cannot contain /
+					if (patternMatch.contains("/")) {
+						System.out.println("patternMatch contains /");
+						return false;
+					}
+					
+					patternMatches.add(url.substring(segmentIndex, segmentIndex + unprocessedURL.indexOf(urlSegment)));
+				}
 				
-				patternMatches.add(url.substring(segmentIndex, segmentIndex + unprocessedURL.indexOf(urlSegment)));
 				segmentIndex += unprocessedURL.indexOf(urlSegment) + urlSegment.length();
 				unprocessedURL = url.substring(segmentIndex);
 			} else {
@@ -95,29 +126,45 @@ public class MicroMapperURL {
 				return false;
 			}
 		}
-
-		// TODO ensure unprocessedURL matches the last segment?
-		// Validation necessary
+		
+		// TODO determine if this is true?  what if URL parameters have /?
+		// Remainder of URL cannot contain /
+		if (unprocessedURL.contains("/")) {
+			
+			System.out.println("unprocessedURL contains /");
+			
+			return false;
+		}
 		
 		patternMatches.add(unprocessedURL);
+		
+		if (patternMatches.size() != this.urlSegmentsArray.length) {
+			System.out.println("sizes don't match");
+			return false;
+		}
+		
+		this.matchingPatterns.put("/" + this.urlPattern, patternMatches);
 		
 		return true;
 	}
 	
-//	private void populateUrlSegments(String baseURL) {
-//		for (String segment : baseURL.split("/")) {
-//			urlSegments.add(new PatternString(segment));
-//		}
-//	}
-//	
-//	private void populateParameterSegments(String parameters) {
-//		for (String segment : parameters.split("/")) {
-//			parameterSegments.add(new PatternString(segment));
-//		}
-//	}
+
+	public List<String> getMatchingPattern(String url) {
+		
+		System.out.println("here");
+		
+		System.out.println(url);
+		System.out.println(matchingPatterns);
+		
+		return matchingPatterns.get(url);
+	}	
 	
+	public Method getMethod() {
+		return this.method;
+	}
 	
 }
+
 class PatternString {
 	
 	private String string;
