@@ -14,6 +14,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import com.benvonderhaar.micromapper.annotation.MMURLPattern;
+import com.benvonderhaar.micromapper.annotation.responseheader.ContentType;
 
 public abstract class MicroMapperRouter extends HttpServlet {
 
@@ -22,12 +23,16 @@ public abstract class MicroMapperRouter extends HttpServlet {
 	private Map<Method, MicroMapperController> controllerMappings;
 	private Map<String, MicroMapperURL> controllerMethodMappings;
 	
+	private Map<Class<? extends Annotation>, Method> responseHeaderAnnotations;
+	
 	@Override
 	public void init() throws ServletException {
 		System.out.println("init");
 		
-		controllerMappings = new ConcurrentHashMap<Method, MicroMapperController>();
-		controllerMethodMappings = new ConcurrentHashMap<String, MicroMapperURL>();
+		this.controllerMappings = new ConcurrentHashMap<Method, MicroMapperController>();
+		this.controllerMethodMappings = new ConcurrentHashMap<String, MicroMapperURL>();
+		
+		this.responseHeaderAnnotations = new ConcurrentHashMap<Class<? extends Annotation>, Method>();
 		
 		for (Class<?> controller : controllerClasses()) {
 			
@@ -60,6 +65,14 @@ public abstract class MicroMapperRouter extends HttpServlet {
 					
 				}
 				
+			}
+		}
+		
+		// Wire up response header annotation handling
+		
+		for (Method method : HttpServletResponse.class.getMethods()) {
+			if (method.getName().equals("setContentType")) {
+				responseHeaderAnnotations.put(ContentType.class, method);
 			}
 		}
 		
@@ -96,11 +109,31 @@ public abstract class MicroMapperRouter extends HttpServlet {
 					System.out.println(controller);
 					System.out.println(matchedParameters);
 				
+					
+					for (Annotation annotation : urlPattern.getMethod().getAnnotations()) {
+						
+						System.out.println(annotation.annotationType());
+						
+						if (annotation instanceof ContentType) {
+							
+							String contentType = ((ContentType)annotation).contentType();
+							
+							if (!((ContentType)annotation).charset().equals("")) {
+								contentType += ";charset=" + ((ContentType)annotation).charset();
+							}
+							
+							resp.setContentType(contentType);
+						}
+					}
+					
+					
+//					resp.setContentType("text/html; charset=ISO-8859-4");
+					
 					// TODO automatically cast argument types 
 					
 					Object[] matchedParametersArray = matchedParameters.toArray();
 					matchedParametersArray[0] = Long.valueOf(matchedParametersArray[0].toString());
-					matchedParametersArray[4] = Long.valueOf(matchedParametersArray[4].toString());
+					matchedParametersArray[1] = Long.valueOf(matchedParametersArray[1].toString());
 					
 					resp.setStatus(HttpServletResponse.SC_OK);
 					resp.getWriter().write(urlPattern.getMethod().invoke(controller, matchedParametersArray).toString());
