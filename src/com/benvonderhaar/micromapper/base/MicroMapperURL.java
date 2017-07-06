@@ -90,7 +90,7 @@ public class MicroMapperURL {
 		
 		// If pattern begins with characters to match (not the match string) and those characters
 		// do not match the first match-able segment of this URL Pattern, no match.
-		if (!this.urlPattern.startsWith(MATCH_STRING) && 0 != url.indexOf(urlSegmentsArray[0])) {
+		if (!this.urlPattern.startsWith(MATCH_STRING) && !url.startsWith(urlSegmentsArray[0])) {
 			System.out.println("beginning of url doesn't match");
 			return false;
 		}
