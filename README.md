@@ -1,8 +1,3 @@
-micro-mapper-test-app
+# Micro Mapper (and Test app)
 
-TODOs
-
-Test suite for URLPattern mapper
-Properly map parameters to methods in MMURLPattern annotated methods
-Get serialization of data objects working
-Generalize Request Header loading into a response formatting annotation pool
+This project is an experimental, minimal Spring MVC replacement that features IoC-based URL mapping and pattern matching.  
