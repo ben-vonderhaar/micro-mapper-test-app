@@ -4,17 +4,23 @@ import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.servlet.ServletException;
+import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import com.benvonderhaar.micromapper.annotation.MMURLPattern;
 import com.benvonderhaar.micromapper.annotation.RequestMethod;
+import com.benvonderhaar.micromapper.annotation.request.ParameterParser;
+import com.benvonderhaar.micromapper.annotation.request.header.RequestCookie;
+import com.benvonderhaar.micromapper.annotation.request.header.RequestCookieParameterParser;
 import com.benvonderhaar.micromapper.annotation.response.ResponseTransformer;
 import com.benvonderhaar.micromapper.annotation.response.header.ContentType;
 import com.benvonderhaar.micromapper.annotation.response.header.ContentTypeResponseTransformer;
@@ -22,7 +28,6 @@ import com.benvonderhaar.micromapper.annotation.response.header.SetDynamicCookie
 import com.benvonderhaar.micromapper.annotation.response.header.SetDynamicCookieResponseTransformer;
 import com.benvonderhaar.micromapper.annotation.response.header.SetStaticCookie;
 import com.benvonderhaar.micromapper.annotation.response.header.SetStaticCookieResponseTransformer;
-import com.benvonderhaar.micromapper.annotation.response.header.cookie.DynamicCookieSetter;
 
 public abstract class MicroMapperRouter extends HttpServlet {
 
@@ -33,6 +38,8 @@ public abstract class MicroMapperRouter extends HttpServlet {
 
 	@SuppressWarnings("rawtypes")
 	private Map<Class<? extends Annotation>, ResponseTransformer> annotationResponseTransformers;
+	@SuppressWarnings("rawtypes")
+	private Map<Class<? extends Annotation>, ParameterParser> annotationParameterParsers;
 	
 	@SuppressWarnings("rawtypes")
 	@Override
@@ -42,6 +49,7 @@ public abstract class MicroMapperRouter extends HttpServlet {
 		this.controllerMappings = new ConcurrentHashMap<Method, MicroMapperController>();
 		this.controllerMethodMappings = new ConcurrentHashMap<String, MicroMapperURL>();
 		this.annotationResponseTransformers = new ConcurrentHashMap<Class<? extends Annotation>, ResponseTransformer>();
+		this.annotationParameterParsers = new ConcurrentHashMap<Class<? extends Annotation>, ParameterParser>();
 		
 		for (Class<?> controller : controllerClasses()) {
 			
@@ -83,6 +91,9 @@ public abstract class MicroMapperRouter extends HttpServlet {
 		annotationResponseTransformers.put(ContentType.class, new ContentTypeResponseTransformer());
 		annotationResponseTransformers.put(SetStaticCookie.class, new SetStaticCookieResponseTransformer());
 		
+		// Wire up custom request parameter handling
+		annotationParameterParsers.put(RequestCookie.class, new RequestCookieParameterParser());
+		
 		super.init();
 	}
 
@@ -99,6 +110,12 @@ public abstract class MicroMapperRouter extends HttpServlet {
 		}
 		
 		System.out.println(specificRequestURL);
+		
+		Map<String, Cookie> cookies = new HashMap<String, Cookie>();
+		
+		for (Cookie cookie : req.getCookies()) {
+			cookies.put(cookie.getName(), cookie);
+		}
 		
 		for (MicroMapperURL urlPattern : controllerMethodMappings.values()) {
 						
@@ -137,11 +154,50 @@ public abstract class MicroMapperRouter extends HttpServlet {
 						}
 					}
 					
-					// TODO automatically cast argument types 
+					Object[] matchedParametersArray = new Object[urlPattern.getMethod().getParameters().length];
+					Parameter[] parameters = urlPattern.getMethod().getParameters();
+					int matchedParametersIndex = 0;
 					
-					Object[] matchedParametersArray = matchedParameters.toArray();
-					matchedParametersArray[0] = Long.valueOf(matchedParametersArray[0].toString());
-					matchedParametersArray[1] = Long.valueOf(matchedParametersArray[1].toString());
+					for (int i = 0; i < parameters.length; i++) {
+						
+						Parameter parameter = parameters[i];
+						Object matchedParameter = null;
+						
+						for (Annotation parameterAnnotation : parameter.getDeclaredAnnotations()) {
+							
+							if (null != this.annotationParameterParsers.get(parameterAnnotation.annotationType())) {
+								matchedParameter = this.annotationParameterParsers.get(
+										parameterAnnotation.annotationType()).parse(cookies, parameterAnnotation);
+							}
+							
+							// TODO probably should log error if multiple annotations are found, but potentially
+							// do this on initial wire-up?
+							if (null != matchedParameter) {
+								matchedParametersArray[i] = matchedParameter;
+								break;
+							}
+						}
+						
+						if (null == matchedParameter) {
+							
+							if (parameter.getType().equals(String.class)) {
+								matchedParametersArray[i] = 
+										matchedParameters.get(matchedParametersIndex);
+								matchedParametersIndex++;
+							} else if (parameter.getType().equals(Long.class)) {
+								matchedParametersArray[i] = 
+										Long.valueOf(matchedParameters.get(matchedParametersIndex));
+								matchedParametersIndex++;
+							} else if (parameter.getType().equals(Integer.class)) {
+								matchedParametersArray[i] = 
+										Integer.valueOf(matchedParameters.get(matchedParametersIndex));
+								matchedParametersIndex++;
+							} else {
+								//TODO handle this error properly
+							}
+							
+						}
+					}
 					
 					resp.setStatus(HttpServletResponse.SC_OK);
 					resp.getWriter().write(urlPattern.getMethod().invoke(controller, matchedParametersArray).toString());
