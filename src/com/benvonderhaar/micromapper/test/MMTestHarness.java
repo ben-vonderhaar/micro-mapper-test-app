@@ -15,6 +15,11 @@ public class MMTestHarness {
 
 	private MicroMapperRouter router;
 	
+	/**
+	 * Provide this with the class of the MicroMapperRouter configured in web.xml
+	 * 
+	 * @param router the class of the MicroMapperRouter configured in web.xml
+	 */
 	public MMTestHarness(Class<? extends MicroMapperRouter> router) {
 		try {
 			this.router = router.newInstance();
@@ -31,8 +36,17 @@ public class MMTestHarness {
 		}
 	}
 	
+	// TODO add ability to map url to MMURLPattern for more complete mapping engine testing
+	
 	// TODO can this be more cleanly integrated as an extension of Assert?
 	
+	/**
+	 * Method to be used to ensure a certain URL map to a certain controller method.
+	 * 
+	 * @param url a URL segment beginning with "/".  This should not contain context path (app name) or server name
+	 * @param referenceId a string that matches the one provided in a MMControllerReference annotation to the intended
+	 * 		controller method
+	 */
 	public void assertMapping(String url, String referenceId) {
 		
 		System.out.println("about to fail");
