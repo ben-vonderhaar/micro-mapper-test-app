@@ -12,12 +12,14 @@ import com.benvonderhaar.micromapper.annotation.response.header.SetDynamicCookie
 import com.benvonderhaar.micromapper.annotation.response.header.cookie.CookieBuilder;
 import com.benvonderhaar.micromapper.annotation.response.header.cookie.DynamicCookieSetter;
 import com.benvonderhaar.micromapper.base.MicroMapperController;
+import com.benvonderhaar.micromapper.test.annotation.MMControllerReference;
 
 public class TestController extends MicroMapperController {
 
 	@MMURLPattern(urlPattern = "/test/{}?param1={}")
 	@ContentType(mediaType=ContentType.MediaType.TEXT, charset=ContentType.Charset.CP_1252)
 	@SetDynamicCookie(cookieSetter=SampleDynamicCookieSetter.class)
+	@MMControllerReference(referenceId = "test")
 	public String testMethod(
 			@RequestCookie(name = "sample_name", fallback = "fallback") String cookie, 
 			Long parameter1, 

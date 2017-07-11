@@ -97,12 +97,43 @@ public abstract class MicroMapperRouter extends HttpServlet {
 		super.init();
 	}
 
-	@SuppressWarnings("unchecked")
 	@Override
 	public void doGet(HttpServletRequest req, HttpServletResponse resp)
 			throws ServletException, IOException {
 		System.out.println("doGet");
 		
+		MMMethodPayload controllerMethod = getIntendedControllerMethod(req, resp, RequestMethod.Verb.GET);
+				
+		try {
+			
+			resp.setStatus(HttpServletResponse.SC_OK);
+			resp.getWriter().write(controllerMethod.getMethod().invoke(controllerMethod.getController(),
+					controllerMethod.getMatchedParametersArray()).toString());
+			resp.getWriter().flush();
+			resp.getWriter().close();
+	
+			
+		} catch (IllegalAccessException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			
+			// TODO handle argument type mismatch
+			// TODO handle wrong number of arguments
+			
+		} catch (IllegalArgumentException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (InvocationTargetException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+				
+		
+		System.out.println("couldn't find mapping");
+	}
+	
+	@SuppressWarnings("unchecked")
+	public MMMethodPayload getIntendedControllerMethod(HttpServletRequest req, HttpServletResponse resp, RequestMethod.Verb verb) throws ServletException {
 		String specificRequestURL = req.getRequestURI().split(req.getContextPath())[1];
 		
 		if (null != req.getQueryString()) {
@@ -124,9 +155,10 @@ public abstract class MicroMapperRouter extends HttpServlet {
 			
 			if (urlPattern.matchesURL(specificRequestURL)) {
 
-				if (!isValidRequestMethod(urlPattern.getMethod(), RequestMethod.Verb.GET)) {
+				if (!isValidRequestMethod(urlPattern.getMethod(), verb)) {
 					System.out.println("invalid verb");
-					return;
+					resp.setStatus(405); // TODO figure out a constant for this
+					throw new ServletException();
 				}
 				
 				try {
@@ -199,33 +231,18 @@ public abstract class MicroMapperRouter extends HttpServlet {
 						}
 					}
 					
-					resp.setStatus(HttpServletResponse.SC_OK);
-					resp.getWriter().write(urlPattern.getMethod().invoke(controller, matchedParametersArray).toString());
-					resp.getWriter().flush();
-					resp.getWriter().close();
-			
-					
-				} catch (IllegalAccessException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-					
-					// TODO handle argument type mismatch
-					// TODO handle wrong number of arguments
-					
+					return new MMMethodPayload(urlPattern.getMethod(), controller, matchedParametersArray);
+							
 				} catch (IllegalArgumentException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
-				} catch (InvocationTargetException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
+					throw new ServletException(e);
 				}
-				
-				return;
 			}
 				
 		}
 		
-		System.out.println("couldn't find mapping");
+		throw new ServletException("Couldn't find mapping");
 	}
 	
 	private boolean isValidRequestMethod(Method controllerMethod, RequestMethod.Verb verb) {

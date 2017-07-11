@@ -122,6 +122,8 @@ public class MicroMapperURL {
 				segmentIndex += unprocessedURL.indexOf(urlSegment) + urlSegment.length();
 				unprocessedURL = url.substring(segmentIndex);
 			} else {
+				System.out.println(unprocessedURL);
+				System.out.println(urlSegment);
 				System.out.println("segments do not match");
 				return false;
 			}
